@@ -872,7 +872,7 @@ static struct notifier_block can_netdev_notifier __read_mostly = {
 /*
  * RTNETLINK
  */
-static int can_rtnl_doit(struct sk_buff *skb, struct nlmsghdr *nlh)
+static int can_rtnl_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
 {
 	int ret, protocol;
 	const struct can_proto *cp;
@@ -1049,11 +1049,9 @@ static int can_set_link_af(struct net_device *dev, const struct nlattr *nla)
 			ret = -EPROTONOSUPPORT;
 		else
 			ret = cp->rtnl_link_ops->set_link_af(dev, prot);
-
+		can_put_proto(cp);
 		if (ret < 0)
 			return ret;
-
-		can_put_proto(cp);
 	}
 	return 0;
 }

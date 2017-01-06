@@ -1,7 +1,6 @@
 /*
  * SC16IS7xx tty serial driver - Copyright (C) 2014 GridPoint
  * Author: Jon Ringle <jringle@gridpoint.com>
- * Copyright (C) 2015 Intel Corporation.
  *
  *  Based on max310x.c, by Alexander Shiyan <shc_work@mail.ru>
  *
@@ -28,6 +27,7 @@
 #include <linux/uaccess.h>
 
 #include "sc16is7xx.h"
+
 
 /* SC16IS7XX register definitions */
 #define SC16IS7XX_RHR_REG		(0x00) /* RX FIFO */
@@ -537,7 +537,7 @@ static void sc16is7xx_handle_rx(struct uart_port *port, unsigned int rxlen,
 		}
 	}
 
-	tty_flip_buffer_push(&port->state->port);
+	tty_flip_buffer_push(port->state->port.tty);
 }
 
 static void sc16is7xx_handle_tx(struct uart_port *port)

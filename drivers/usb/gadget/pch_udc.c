@@ -33,10 +33,8 @@ static unsigned int phy_err_time = 100;
 module_param(phy_err_time, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(phy_err_time, "delay time between disconnect in milliseconds");
 
-/* delay time between disconnect */
-static unsigned long  phy_err_time_jiffies;
-/* timeout for PHY ERR disconnect */
-static unsigned long  phy_err_backoff_end;
+static unsigned long  phy_err_time_jiffies;	/* delay time between disconnect  */
+static unsigned long  phy_err_backoff_end;	/* timeout for PHY ERR disconnect */
 
 /* GPIO port for VBUS detecting */
 static int vbus_gpio_port = -1;		/* GPIO port number (-1:Not used) */
@@ -674,9 +672,9 @@ static inline void pch_udc_vbus_session(struct pch_udc_dev *dev,
 		dev->vbus_session = 1;
 	} else {
 		if (dev->driver && dev->driver->disconnect) {
-			spin_lock(&dev->lock);
-			dev->driver->disconnect(&dev->gadget);
 			spin_unlock(&dev->lock);
+			dev->driver->disconnect(&dev->gadget);
+			spin_lock(&dev->lock);
 		}
 		pch_udc_set_disconnect(dev);
 		dev->vbus_session = 0;
@@ -1248,9 +1246,9 @@ static int pch_udc_pcd_pullup(struct usb_gadget *gadget, int is_on)
 		pch_udc_reconnect(dev);
 	} else {
 		if (dev->driver && dev->driver->disconnect) {
-			spin_lock(&dev->lock);
-			dev->driver->disconnect(&dev->gadget);
 			spin_unlock(&dev->lock);
+			dev->driver->disconnect(&dev->gadget);
+			spin_lock(&dev->lock);
 		}
 		pch_udc_set_disconnect(dev);
 	}
@@ -1545,11 +1543,11 @@ static void complete_req(struct pch_udc_ep *ep, struct pch_udc_request *req,
 		req->dma_mapped = 0;
 	}
 	ep->halted = 1;
-	spin_lock(&dev->lock);
+	spin_unlock(&dev->lock);
 	if (!ep->in)
 		pch_udc_ep_clear_rrdy(ep);
 	req->req.complete(&ep->ep, &req->req);
-	spin_unlock(&dev->lock);
+	spin_lock(&dev->lock);
 	ep->halted = halted;
 }
 
@@ -2471,7 +2469,7 @@ static void pch_udc_svc_control_out(struct pch_udc_dev *dev)
 			dev->gadget.ep0 = &dev->ep[UDC_EP0IN_IDX].ep;
 		else /* OUT */
 			dev->gadget.ep0 = &ep->ep;
-		spin_lock(&dev->lock);
+		spin_unlock(&dev->lock);
 		/* If Mass storage Reset */
 		if ((dev->setup_data.bRequestType == 0x21) &&
 		    (dev->setup_data.bRequest == 0xFF))
@@ -2479,7 +2477,7 @@ static void pch_udc_svc_control_out(struct pch_udc_dev *dev)
 		/* call gadget with setup data received */
 		setup_supported = dev->driver->setup(&dev->gadget,
 						     &dev->setup_data);
-		spin_unlock(&dev->lock);
+		spin_lock(&dev->lock);
 
 		if (dev->setup_data.bRequestType & USB_DIR_IN) {
 			ep->td_data->status = (ep->td_data->status &
@@ -2651,9 +2649,9 @@ static void pch_udc_svc_ur_interrupt(struct pch_udc_dev *dev)
 		empty_req_queue(ep);
 	}
 	if (dev->driver && dev->driver->disconnect) {
-		spin_lock(&dev->lock);
-		dev->driver->disconnect(&dev->gadget);
 		spin_unlock(&dev->lock);
+		dev->driver->disconnect(&dev->gadget);
+		spin_lock(&dev->lock);
 	}
 }
 
@@ -2733,9 +2731,9 @@ static void pch_udc_svc_intf_interrupt(struct pch_udc_dev *dev)
 		dev->ep[i].halted = 0;
 	}
 	dev->stall = 0;
-	spin_lock(&dev->lock);
-	ret = dev->driver->setup(&dev->gadget, &dev->setup_data);
 	spin_unlock(&dev->lock);
+	ret = dev->driver->setup(&dev->gadget, &dev->setup_data);
+	spin_lock(&dev->lock);
 }
 
 /**
@@ -2770,9 +2768,9 @@ static void pch_udc_svc_cfg_interrupt(struct pch_udc_dev *dev)
 	dev->stall = 0;
 
 	/* call gadget zero with setup data received */
-	spin_lock(&dev->lock);
-	ret = dev->driver->setup(&dev->gadget, &dev->setup_data);
 	spin_unlock(&dev->lock);
+	ret = dev->driver->setup(&dev->gadget, &dev->setup_data);
+	spin_lock(&dev->lock);
 }
 
 /**
@@ -3184,10 +3182,12 @@ static void pch_udc_remove(struct pci_dev *pdev)
 
 	pch_udc_exit(dev);
 
-	if (dev->irq_registered) {
+	if (dev->irq_registered)
+		{
 		free_irq(pdev->irq, dev);
-		if (enable_msi)
+		if (enable_msi){
 			pci_disable_msi(pdev);
+		}
 	}
 	if (dev->base_addr)
 		iounmap(dev->base_addr);
@@ -3252,11 +3252,9 @@ static int pch_udc_probe(struct pci_dev *pdev,
 		goto finished;
 	}
 
-	/*
-	 * If the driver runs on a HW platform which supports GPIO VBUS sensing
+	/* If the driver runs on a HW platform which supports GPIO VBUS sensing
 	 * and the BSP layer initialises the platform data structure, get it
-	 * through pch-gpio-vbus driver
-	 */
+	 * through pch-gpio-vbus driver */
 #ifdef CONFIG_USB_EG20T_GPIO_VBUS
 	dev_info(&pdev->dev, "GPIO VBUS support present!\n");
 	struct pch_udc_platform_data *pdata = NULL;

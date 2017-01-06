@@ -49,7 +49,6 @@ proc_file_write(struct file *file, const char __user *buffer,
 	/* FIXME: does this routine need ppos?  probably... */
 	return dp->write_proc(file, buffer, count, dp->data);
 #endif
-	return 0;
 }
 
 static const struct file_operations j1939_proc_ops = {
